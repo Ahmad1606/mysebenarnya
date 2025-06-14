@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('public_users', function (Blueprint $table) {
             $table->id();
+            $table->string('PubName');
+            $table->string('PubEmail')->unique();
+            $table->string('PubPassword');
+            $table->string('PubContact');
+            $table->boolean('PubStatusVerify')->default(false);
             $table->timestamps();
         });
     }

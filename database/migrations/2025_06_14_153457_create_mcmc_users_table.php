@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('mcmc_users', function (Blueprint $table) {
             $table->id();
+            $table->string('MCUsername')->unique();
+            $table->string('MCName');
+            $table->string('MCEmail')->unique();
+            $table->string('MCPassword');
+            $table->string('MCContact');
             $table->timestamps();
         });
     }
