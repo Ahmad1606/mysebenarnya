@@ -12,13 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('public_users', function (Blueprint $table) {
-            $table->id();
-            $table->string('PubName');
-            $table->string('PubEmail')->unique();
-            $table->string('PubPassword');
-            $table->string('PubContact');
-            $table->boolean('PubStatusVerify')->default(false);
+            $table->bigIncrements("PublicID");
+            $table->string('PublicName');
+            $table->string('PubicEmail')->unique();
+            $table->string('PublicPassword');
+            $table->string('PublicContact');
+            $table->boolean('PublicStatusVerify')->default(false);
+            $table->unsignedBigInteger('RoleID');
             $table->timestamps();
+
+            $table->foreign('RoleID')->references('RoleID')->on('role_users')->onDelete('cascade');  
         });
     }
 

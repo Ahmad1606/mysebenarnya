@@ -12,13 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('mcmc_users', function (Blueprint $table) {
-            $table->id();
-            $table->string('MCUsername')->unique();
-            $table->string('MCName');
-            $table->string('MCEmail')->unique();
-            $table->string('MCPassword');
-            $table->string('MCContact');
+            $table->bigIncrements('MCMCID');
+            $table->string('MCMCUserName')->unique();
+            $table->string('MCMCName');
+            $table->string('MCMCEmail')->unique();
+            $table->string('MCMCPassword');
+            $table->string('MCMCContact');
+            $table->unsignedBigInteger('RoleID');
             $table->timestamps();
+
+            $table->foreign('RoleID')->references('ROleID')->on('role_users')->onDelete('cascade');
         });
     }
 
