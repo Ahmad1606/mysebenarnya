@@ -3,33 +3,42 @@
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
 class McmcUser extends Authenticatable
 {
+    use Notifiable;
+
     protected $table = 'mcmc_users';
-    protected $primaryKey = 'MCUser_id';
+    protected $primaryKey = 'MCMCID';
     public $timestamps = true;
 
     protected $fillable = [
-        'MCUsername',
-        'MCName',
-        'MCEmail',
-        'MCPassword',
-        'MCContact',
+        'MCMCUserName',
+        'MCMCName',
+        'MCMCEmail',
+        'MCMCPassword',
+        'MCMCContact',
+        'RoleID',
     ];
 
     protected $hidden = [
-        'MCPassword',
+        'MCMCPassword',
         'remember_token',
     ];
 
-    public function getAuthPassword()
+    public function role()
     {
-        return $this->MCPassword;
+        return $this->belongsTo(RoleUser::class, 'RoleID', 'RoleID');
     }
 
     public function agencyUsers()
     {
-        return $this->hasMany(AgencyUser::class, 'MCMCID');
+        return $this->hasMany(AgencyUser::class, 'MCMCID', 'MCMCID');
+    }
+
+    public function inquiryProgresses()
+    {
+        return $this->hasMany(InquiryProgress::class, 'MCMCID');
     }
 }

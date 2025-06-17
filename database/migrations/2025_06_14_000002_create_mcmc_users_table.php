@@ -14,7 +14,6 @@ return new class extends Migration
         Schema::create('mcmc_users', function (Blueprint $table) {
             $table->bigIncrements('MCMCID');
             $table->string('MCMCUserName')->unique();
-            $table->string('MCMCName');
             $table->string('MCMCEmail')->unique();
             $table->string('MCMCPassword');
             $table->string('MCMCContact');

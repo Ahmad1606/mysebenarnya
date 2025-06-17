@@ -14,11 +14,12 @@ return new class extends Migration
         Schema::create('public_users', function (Blueprint $table) {
             $table->bigIncrements("PublicID");
             $table->string('PublicName');
-            $table->string('PubicEmail')->unique();
+            $table->string('PublicEmail')->unique();
             $table->string('PublicPassword');
             $table->string('PublicContact');
             $table->boolean('PublicStatusVerify')->default(false);
             $table->unsignedBigInteger('RoleID');
+            $table->rememberToken();
             $table->timestamps();
 
             $table->foreign('RoleID')->references('RoleID')->on('role_users')->onDelete('cascade');  

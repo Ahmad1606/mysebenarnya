@@ -1,54 +1,45 @@
 <?php
 
+use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\UserController;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application.
-|
-*/
-
-// 👋 Welcome page (Landing)
 Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect()->route('profile'); // or role-based dashboard
-    }
-    return view('welcome');
-})->name('home');
-
-// 🔐 Login Routes
-Route::get('/login', [UserController::class, 'showLogin'])->name('login');
-Route::post('/login', [UserController::class, 'login']);
-
-// 📝 Register Routes
-Route::get('/register', [UserController::class, 'showRegister'])->name('register');
-Route::post('/register', [UserController::class, 'register']);
-
-// 🚪 Logout
-Route::post('/logout', [UserController::class, 'logout'])->name('logout');
-
-// 🙍‍♂️ Profile Routes (only after login)
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [UserController::class, 'profile'])->name('profile');
-    Route::post('/profile', [UserController::class, 'updateProfile'])->name('profile.update');
+    return redirect('/login');
 });
 
-// 🧭 (Optional) Role-Based Dashboards
-Route::middleware('auth')->group(function () {
-    Route::get('/dashboard/public', function () {
-        return view('dashboards.public');
-    })->name('public.dashboard');
 
-    Route::get('/dashboard/agency', function () {
-        return view('dashboards.agency');
-    })->name('agency.dashboard');
+// Login & Register
+Route::get('/login', [UserManagementController::class, 'showLogin'])->name('login');
+Route::post('/login', [UserManagementController::class, 'login']);
+Route::post('/logout', [UserManagementController::class, 'logout'])->name('logout');
 
-    Route::get('/dashboard/mcmc', function () {
-        return view('dashboards.mcmc');
-    })->name('mcmc.dashboard');
+Route::get('/register', [UserManagementController::class, 'showRegister'])->name('register');
+Route::post('/register', [UserManagementController::class, 'register']);
+
+// Email verification
+Route::get('/verify/{token}', [UserManagementController::class, 'verifyEmail'])->name('email.verify');
+
+// Password reset (initiate only)
+Route::post('/password/forgot', [UserManagementController::class, 'sendPasswordResetLink'])->name('password.email');
+
+// Profile (protected by role middleware)
+Route::middleware('isPublicUser')->group(function () {
+    Route::get('/manageUser/dashboard', fn() => view('manageUser.dashboard'));
+    Route::get('/profile/public', [UserManagementController::class, 'showProfile']);
+    Route::post('/profile/public', [UserManagementController::class, 'updateProfile']);
+});
+
+Route::middleware('isAgency')->group(function () {
+    Route::get('/agency/dashboard', fn() => view('agency.dashboard'));
+    Route::get('/profile/agency', [UserManagementController::class, 'showProfile']);
+    Route::post('/profile/agency', [UserManagementController::class, 'updateProfile']);
+    Route::post('/agency/first-login-reset', [UserManagementController::class, 'enforceFirstLoginReset']);
+});
+
+Route::middleware('isMcmc')->group(function () {
+    Route::get('/mcmc/dashboard', fn() => view('mcmc.dashboard'));
+    Route::get('/profile/mcmc', [UserManagementController::class, 'showProfile']);
+    Route::post('/profile/mcmc', [UserManagementController::class, 'updateProfile']);
+    Route::post('/register-agency', [UserManagementController::class, 'registerAgency']);
+    Route::get('/report/users', [UserManagementController::class, 'generateReport']);
 });
