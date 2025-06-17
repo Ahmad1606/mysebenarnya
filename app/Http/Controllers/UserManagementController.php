@@ -31,7 +31,7 @@ class UserManagementController extends Controller
         ]);
 
         $map = [
-            'public' => [PublicUser::class, 'PublicEmail', 'PublicPassword', 'public', '/public/dashboard'],
+            'public' => [PublicUser::class, 'PublicEmail', 'PublicPassword', 'public', '/manageUser/dashboard'],
             'agency' => [AgencyUser::class, 'AgencyUserName', 'AgencyPassword', 'agency', '/agency/dashboard'],
             'mcmc'   => [McmcUser::class, 'MCMCUserName', 'MCMCPassword', 'mcmc', '/mcmc/dashboard'],
         ];
