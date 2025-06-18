@@ -24,7 +24,8 @@ Route::post('/password/forgot', [UserManagementController::class, 'sendPasswordR
 
 // Profile (protected by role middleware)
 Route::middleware('isPublicUser')->group(function () {
-    Route::get('/manageUser/dashboard', fn() => view('manageUser.dashboard'));
+    // Route::get('/manageUser/profile', fn() => view('manageUser.profile'))->name('public.profile');
+    Route::get('/manageUser/dashboard', [UserManagementController::class, 'showProfile'])->name('public.dashboard');
     Route::get('/profile/public', [UserManagementController::class, 'showProfile']);
     Route::post('/profile/public', [UserManagementController::class, 'updateProfile']);
 });

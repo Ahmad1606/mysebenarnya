@@ -1,11 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile</title>
-</head>
-<body>
-    <h1>Profile</h1>
-</body>
-</html>
+@extends('layouts.app')
+
+@section('content')
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h3 class="card-title">Welcome, {{ Auth::guard('public')->user()->PublicName }}!</h3>
+        <p class="card-text">You are now logged in as a Public User.</p>
+    </div>
+</div>
+@endsection

@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PublicUserVerificationMail;
 use App\Models\PublicUser;
 use App\Models\AgencyUser;
 use App\Models\McmcUser;
+
 
 class UserManagementController extends Controller
 {
@@ -31,17 +34,24 @@ class UserManagementController extends Controller
         ]);
 
         $map = [
-            'public' => [PublicUser::class, 'PublicEmail', 'PublicPassword', 'public', '/manageUser/dashboard'],
+            'public' => [PublicUser::class, 'PublicEmail', 'PublicPassword', 'public', '/manageUser/profile'],
             'agency' => [AgencyUser::class, 'AgencyUserName', 'AgencyPassword', 'agency', '/agency/dashboard'],
             'mcmc'   => [McmcUser::class, 'MCMCUserName', 'MCMCPassword', 'mcmc', '/mcmc/dashboard'],
         ];
 
         [$model, $loginField, $passwordField, $guard, $redirect] = $map[$request->role];
         $user = $model::where($loginField, $request->identifier)->first();
+        
+
 
         if (!$user || !Hash::check($request->password, $user->{$passwordField})) {
             return back()->with('error', 'Invalid credentials');
         }
+
+        if ($request->role === 'public' && !$user->PublicStatusVerify) {
+            return back()->with('error', 'Please verify your email before logging in.');
+        }
+
 
         Auth::guard($guard)->login($user);
         return redirect($redirect);
@@ -77,7 +87,7 @@ class UserManagementController extends Controller
             'PublicPassword' => 'required|string|min:8|confirmed',
             'PublicContact' => 'required|string',
         ]);
-
+        $token=bin2hex(random_bytes(16));
         $user = PublicUser::create([
             'PublicName' => $request->PublicName,
             'PublicEmail' => $request->PublicEmail,
@@ -85,15 +95,17 @@ class UserManagementController extends Controller
             'PublicContact' => $request->PublicContact,
             'PublicStatusVerify' => false,
             'RoleID' => 3,
-            'remember_token' => bin2hex(random_bytes(16)),
+            // 'remember_token' => $token ,
         ]);
-
-        dd($request->all());
+        $user->remember_token = $token;
+        $user->save();
 
         // TODO: Send email with verification link
-        // Auth::guard('public')->login($user);
+        Auth::guard('public')->login($user);
+        Mail::to($user->PublicEmail)->send(new PublicUserVerificationMail($user));
+
+        return redirect()->route('login')->with('message', 'Registration successful. Please check your email (logged) to verify.');
         
-        // return redirect('/manageUser/dashboard')->with('message', 'Registration successful. Please verify your email.');
     }
 
     // ------------------------
@@ -184,14 +196,14 @@ class UserManagementController extends Controller
     // ------------------------
     public function verifyEmail($token)
     {
-        $user = PublicUser::where('verification_token', $token)->first();
+        $user = PublicUser::where('remember_token', $token)->first();
 
         if (!$user) {
             return redirect('/login')->with('error', 'Invalid verification link.');
         }
 
         $user->PublicStatusVerify = true;
-        $user->verification_token = null;
+        // $user->verification_token = null;
         $user->save();
 
         return redirect('/login')->with('message', 'Email verified. Please login.');
