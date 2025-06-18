@@ -11,7 +11,6 @@ use App\Models\PublicUser;
 use App\Models\AgencyUser;
 use App\Models\McmcUser;
 
-
 class UserManagementController extends Controller
 {
     // ------------------------
@@ -34,26 +33,31 @@ class UserManagementController extends Controller
         ]);
 
         $map = [
-            'public' => [PublicUser::class, 'PublicEmail', 'PublicPassword', 'public', '/manageUser/profile'],
+            'public' => [PublicUser::class, 'PublicEmail', 'PublicPassword', 'public', '/public/profile'],
             'agency' => [AgencyUser::class, 'AgencyUserName', 'AgencyPassword', 'agency', '/agency/dashboard'],
             'mcmc'   => [McmcUser::class, 'MCMCUserName', 'MCMCPassword', 'mcmc', '/mcmc/dashboard'],
         ];
 
         [$model, $loginField, $passwordField, $guard, $redirect] = $map[$request->role];
         $user = $model::where($loginField, $request->identifier)->first();
-        
-
 
         if (!$user || !Hash::check($request->password, $user->{$passwordField})) {
             return back()->with('error', 'Invalid credentials');
         }
 
+        // Email verification check for public users
         if ($request->role === 'public' && !$user->PublicStatusVerify) {
             return back()->with('error', 'Please verify your email before logging in.');
         }
 
-
         Auth::guard($guard)->login($user);
+        session(['role' => $request->role]);
+
+        // First-time password reset check for agency
+        if ($request->role === 'agency' && $user->AgencyFirstLogin) {
+            return redirect()->route('agency.password.reset');
+        }
+
         return redirect($redirect);
     }
 
@@ -68,6 +72,7 @@ class UserManagementController extends Controller
             Auth::guard($role)->logout();
         }
 
+        session()->forget('role');
         return redirect('/login')->with('message', 'Logged out successfully.');
     }
 
@@ -87,7 +92,8 @@ class UserManagementController extends Controller
             'PublicPassword' => 'required|string|min:8|confirmed',
             'PublicContact' => 'required|string',
         ]);
-        $token=bin2hex(random_bytes(16));
+
+        $token = bin2hex(random_bytes(16));
         $user = PublicUser::create([
             'PublicName' => $request->PublicName,
             'PublicEmail' => $request->PublicEmail,
@@ -95,34 +101,34 @@ class UserManagementController extends Controller
             'PublicContact' => $request->PublicContact,
             'PublicStatusVerify' => false,
             'RoleID' => 3,
-            // 'remember_token' => $token ,
         ]);
+
         $user->remember_token = $token;
         $user->save();
 
-        // TODO: Send email with verification link
         Auth::guard('public')->login($user);
         Mail::to($user->PublicEmail)->send(new PublicUserVerificationMail($user));
 
-        return redirect()->route('login')->with('message', 'Registration successful. Please check your email (logged) to verify.');
-        
+        return redirect()->route('login')->with('message', 'Registration successful. Please check your email to verify.');
     }
 
     // ------------------------
     // View/Edit Profile (All roles)
     // ------------------------
-    public function showProfile($role)
+    public function showProfile()
     {
-        $guard = Auth::guard($role);
-        if (!$guard->check()) {
-            return redirect('/login')->with('error', 'Unauthorized');
+        $guards = ['public', 'agency', 'mcmc'];
+        foreach ($guards as $role) {
+            if (Auth::guard($role)->check()) {
+                $user = Auth::guard($role)->user();
+                return view('manageUser.profile', compact('user', 'role'));
+            }
         }
 
-        $user = $guard->user();
-        return view('profile.show', compact('user', 'role'));
+        return redirect('/login')->with('error', 'Unauthorized access.');
     }
 
-    public function updateProfile(Request $request, $role)
+    public function updateProfile(Request $request)
     {
         $map = [
             'public' => [PublicUser::class, 'PublicID'],
@@ -130,17 +136,16 @@ class UserManagementController extends Controller
             'mcmc'   => [McmcUser::class,   'MCMCID'],
         ];
 
+        $role = session('role');
         if (!isset($map[$role])) {
-            return back()->with('error', 'Invalid role');
+            return back()->with('error', 'Invalid role.');
         }
 
-        [$model, $pk] = $map[$role];
         $user = Auth::guard($role)->user();
-
         $user->fill($request->only($user->getFillable()));
         $user->save();
 
-        return back()->with('message', 'Profile updated');
+        return back()->with('message', 'Profile updated successfully.');
     }
 
     // ------------------------
@@ -172,6 +177,17 @@ class UserManagementController extends Controller
     // ------------------------
     // Enforce First-Time Password Change (Agency)
     // ------------------------
+    public function showFirstLoginReset()
+    {
+        $user = Auth::guard('agency')->user();
+
+        if (!$user || !$user->AgencyFirstLogin) {
+            return redirect()->route('agency.dashboard');
+        }
+
+        return view('manageUser.agency_password_reset');
+    }
+
     public function enforceFirstLoginReset(Request $request)
     {
         $user = Auth::guard('agency')->user();
@@ -185,10 +201,10 @@ class UserManagementController extends Controller
             $user->AgencyFirstLogin = false;
             $user->save();
 
-            return redirect('/agency/dashboard')->with('message', 'Password updated. Welcome!');
+            return redirect()->route('agency.dashboard')->with('message', 'Password updated. Welcome!');
         }
 
-        return redirect('/agency/dashboard');
+        return redirect()->route('agency.dashboard');
     }
 
     // ------------------------
@@ -203,14 +219,13 @@ class UserManagementController extends Controller
         }
 
         $user->PublicStatusVerify = true;
-        // $user->verification_token = null;
         $user->save();
 
         return redirect('/login')->with('message', 'Email verified. Please login.');
     }
 
     // ------------------------
-    // Forgot Password (send reset link)
+    // Forgot Password (send reset link) [Stub]
     // ------------------------
     public function sendPasswordResetLink(Request $request)
     {
@@ -232,8 +247,8 @@ class UserManagementController extends Controller
             return back()->with('error', 'Email not found.');
         }
 
-        // TODO: Send email with password reset token
-        return back()->with('message', 'Password reset instructions sent.');
+        // Stub only
+        return back()->with('message', 'Password reset instructions sent (not implemented).');
     }
 
     // ------------------------
