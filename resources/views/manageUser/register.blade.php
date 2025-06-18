@@ -24,8 +24,8 @@
                     </div>
                 @endif
 
-                @if(session('success'))
-                    <div class="alert alert-success">{{ session('success') }}</div>
+                @if(session('message'))
+                    <div class="alert alert-success">{{ session('message') }}</div>
                 @endif
 
                 <form method="POST" action="{{ route('register') }}">
@@ -48,12 +48,12 @@
 
                     <div class="mb-3">
                         <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" required>
+                        <input type="password" name="PublicPassword" class="form-control" required>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Confirm Password</label>
-                        <input type="password" name="password_confirmation" class="form-control" required>
+                        <input type="password" name="PublicPassword_confirmation" class="form-control" required>
                     </div>
 
                     <div class="d-grid mb-3">
