@@ -6,10 +6,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use App\Mail\PublicUserVerificationMail;
 use App\Models\PublicUser;
 use App\Models\AgencyUser;
 use App\Models\McmcUser;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\{PublicUsersExport, AgencyUsersExport, McmcUsersExport};
 
 class UserManagementController extends Controller
 {
@@ -55,7 +60,16 @@ class UserManagementController extends Controller
 
         // First-time password reset check for agency
         if ($request->role === 'agency' && $user->AgencyFirstLogin) {
-            return redirect()->route('agency.password.reset');
+        Auth::guard('agency')->login($user); // Still log them in
+
+        session(['role' => 'agency']);
+
+        return redirect()
+            ->route('login')
+            ->with([
+                'first_time_login' => true,
+                'agency_id' => $user->AgencyID,
+            ]);
         }
 
         return redirect($redirect);
@@ -174,20 +188,6 @@ class UserManagementController extends Controller
         return response()->json(['message' => 'Agency registered successfully', 'agency' => $agency]);
     }
 
-    // ------------------------
-    // Enforce First-Time Password Change (Agency)
-    // ------------------------
-    public function showFirstLoginReset()
-    {
-        $user = Auth::guard('agency')->user();
-
-        if (!$user || !$user->AgencyFirstLogin) {
-            return redirect()->route('agency.dashboard');
-        }
-
-        return view('manageUser.agency_password_reset');
-    }
-
     public function enforceFirstLoginReset(Request $request)
     {
         $user = Auth::guard('agency')->user();
@@ -229,28 +229,96 @@ class UserManagementController extends Controller
     // ------------------------
     public function sendPasswordResetLink(Request $request)
     {
+            $request->validate([
+                'role' => 'required|in:public,agency,mcmc',
+                'email' => 'required|email',
+            ]);
+
+            $map = [
+                'public' => [PublicUser::class, 'PublicEmail'],
+                'agency' => [AgencyUser::class, 'AgencyEmail'],
+                'mcmc'   => [McmcUser::class, 'MCMCEmail'],
+            ];
+
+            [$model, $emailField] = $map[$request->role];
+            $user = $model::where($emailField, $request->email)->first();
+
+            if (!$user) {
+                return back()->with('error', 'Email not found.');
+            }
+
+            $token = Str::random(64);
+            $link = url("/reset-password/{$token}?email=" . urlencode($request->email));
+
+            // Simulate email in log
+            Log::info("
+        📬 Simulated Password Reset Email
+
+        To: {$request->email}
+        Subject: Reset Your MySebenarnya Password
+
+        Hello,
+
+        We received a request to reset your password for your {$request->role} account.
+
+        Please click the link below to reset your password:
+
+        $link
+
+        If you did not request a password reset, no further action is required.
+
+        Regards,  
+        MySebenarnya Team
+            ");
+
+            return back()->with('message', 'Password reset link has been sent to your email.');
+    }
+
+    //reset password form submission from modal
+    public function handleResetPassword(Request $request)
+    {
         $request->validate([
-            'role' => 'required|in:public,agency,mcmc',
             'email' => 'required|email',
+            'new_password' => 'required|min:8|confirmed',
         ]);
 
         $map = [
-            'public' => [PublicUser::class, 'PublicEmail'],
-            'agency' => [AgencyUser::class, 'AgencyEmail'],
-            'mcmc'   => [McmcUser::class, 'MCMCEmail'],
+            'public' => [PublicUser::class, 'PublicEmail', 'PublicPassword'],
+            'agency' => [AgencyUser::class, 'AgencyEmail', 'AgencyPassword'],
+            'mcmc'   => [McmcUser::class, 'MCMCEmail', 'MCMCPassword'],
         ];
 
-        [$model, $emailField] = $map[$request->role];
-        $user = $model::where($emailField, $request->email)->first();
+        $user = null;
+        $matchedRole = null;
+        $passwordField = null;
 
-        if (!$user) {
-            return back()->with('error', 'Email not found.');
+        foreach ($map as $role => [$model, $emailField, $pwField]) {
+            $user = $model::where($emailField, $request->email)->first();
+            if ($user) {
+                $matchedRole = $role;
+                $passwordField = $pwField;
+                break;
+            }
         }
 
-        // Stub only
-        return back()->with('message', 'Password reset instructions sent (not implemented).');
-    }
+        if (!$user) {
+            return back()->with('error', 'User not found.');
+        }
 
+        $user->{$passwordField} = Hash::make($request->new_password);
+        $user->save();
+
+        return redirect()->route('login')->with('message', 'Password successfully reset. You may now login.');
+    }
+    //mcmc view all users
+    public function showAllUsers()
+    {
+        $publicUsers = PublicUser::all();
+        $agencyUsers = AgencyUser::all();
+        $mcmcUsers = McmcUser::all();
+
+        return view('manageUser.manage_user', compact('publicUsers', 'agencyUsers', 'mcmcUsers'));
+    }
     // ------------------------
     // Generate User Report (MCMC)
     // ------------------------
@@ -269,6 +337,43 @@ class UserManagementController extends Controller
             ]),
         };
 
-        return view('reports.user_report', compact('data', 'type'));
+        return view('manageUser.user_report', compact('data', 'type'));
     }
+
+    // Export User report
+    public function exportReport(Request $request, $type, $format)
+    {
+        switch ($type) {
+            case 'public':
+                $data = PublicUser::all();
+                $export = new PublicUsersExport;
+                break;
+
+            case 'agency':
+                $data = AgencyUser::all();
+                $export = new AgencyUsersExport;
+                break;
+
+            case 'mcmc':
+                $data = McmcUser::all();
+                $export = new McmcUsersExport;
+                break;
+
+            default:
+                return back()->with('error', 'Invalid user type.');
+        }
+
+        $filename = $type . '_report_' . now()->format('Ymd_His');
+
+        if ($format === 'excel') {
+            return Excel::download($export, $filename . '.xlsx');
+        }
+
+        if ($format === 'pdf') {
+            $pdf = PDF::loadView('manageUser.user_pdf', ['data' => $data, 'type' => $type]);
+            return $pdf->download($filename . '.pdf');
+        }
+
+        return back()->with('error', 'Invalid export format.');
+    } 
 }

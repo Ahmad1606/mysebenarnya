@@ -19,8 +19,18 @@ Route::post('/register', [UserManagementController::class, 'register']);
 // Email verification
 Route::get('/verify/{token}', [UserManagementController::class, 'verifyEmail'])->name('email.verify');
 
-// Password reset (initiate only)
+// Forgot password form submission from modal
 Route::post('/password/forgot', [UserManagementController::class, 'sendPasswordResetLink'])->name('password.email');
+
+// Show password reset form from link (logs simulate this)
+Route::get('/reset-password/{token}', function ($token, \Illuminate\Http\Request $request) {
+    $email = $request->query('email');
+    return view('manageUser.reset_password', compact('token', 'email'));
+})->name('password.reset');
+
+// Handle form submission to reset password
+Route::post('/reset-password', [UserManagementController::class, 'handleResetPassword'])->name('password.reset.submit');
+
 
 // ---------------------------------------------------
 // Public User Routes (Guard: auth:public)
@@ -55,13 +65,24 @@ Route::middleware(['auth:agency'])->group(function () {
 Route::middleware(['auth:mcmc'])->group(function () {
     // Dashboard
     Route::get('/mcmc/dashboard', function () {
-        return view('manageUser.dashboard', ['role' => 'mcmc']);
+    return view('manageUser.dashboard', [
+        'role' => 'mcmc',
+        'publicCount' => \App\Models\PublicUser::count(),
+        'agencyCount' => \App\Models\AgencyUser::count(),
+        'mcmcCount' => \App\Models\McmcUser::count(),
+        ]);
     })->name('mcmc.dashboard');
 
     // Profile
     Route::get('/mcmc/profile', [UserManagementController::class, 'showProfile'])->name('mcmc.profile');
     Route::post('/mcmc/profile', [UserManagementController::class, 'updateProfile'])->name('mcmc.profile.update');
 
+    //Manage Users
+    Route::get('/mcmc/manage-user', [UserManagementController::class, 'showAllUsers'])->name('mcmc.manageUser');
+    Route::post('/mcmc/register-agency', [UserManagementController::class, 'registerAgency'])->name('mcmc.register.agency');
+
     // User report
     Route::get('/manageUser/report', [UserManagementController::class, 'generateReport'])->name('mcmc.report');
+    Route::get('/manageUser/export/{type}/{format}', [UserManagementController::class, 'exportReport'])->name('mcmc.export');
+
 });

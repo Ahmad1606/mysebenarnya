@@ -21,10 +21,25 @@
 
     <!-- Header -->
     <header class="py-3 px-4 text-white d-flex justify-content-between align-items-center"
-            style="background-color: #0c4a6e;">
+            style="background-color: #234da0;">
         <h4 class="fw-bold mb-0">MySebenarnya</h4>
         <div class="d-flex align-items-center gap-3">
-            <span class="fw-semibold">{{ Auth::guard($role)->user()->{ucfirst($role).'Name'} ?? 'User' }}</span>
+            <span class="fw-semibold">
+                @php $user = Auth::guard($role)->user(); @endphp
+                @switch($role)
+                    @case('public')
+                        {{ $user->PublicName ?? 'Public' }}
+                        @break
+                    @case('agency')
+                        {{ $user->AgencyUserName ?? 'Agency' }}
+                        @break
+                    @case('mcmc')
+                        {{ $user->MCMCUserName ?? 'MCMC' }}
+                        @break
+                    @default
+                        User
+                @endswitch
+            </span>
             <div class="bg-primary text-white rounded-circle fw-bold d-flex justify-content-center align-items-center"
                 style="width: 36px; height: 36px;">
                 {{
@@ -123,9 +138,9 @@
                                 </a>
                             </li>
                             <li class="nav-item mb-1">
-                                <a href="#"
-                                   class="nav-link d-flex align-items-center rounded text-dark">
-                                    <i class="fas fa-users-gear me-2"></i> Manage User
+                                <a href="{{ route('mcmc.manageUser') }}"
+                                   class="nav-link d-flex align-items-center rounded {{ $current === 'mcmc.manageUser' ? 'active fw-semibold text-primary' : 'text-dark' }}">
+                                    <i class="fas fa-user-plus me-2"></i> Manage User
                                 </a>
                             </li>
                             <li class="nav-item mb-1">
