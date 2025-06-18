@@ -13,9 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'isPublicUser' => \App\Http\Middleware\IsPublicUser::class,
-            'isAgency' => \App\Http\Middleware\IsAgency::class,
-            'isMcmc' => \App\Http\Middleware\IsMcmc::class,
+            'IsPublicUser' => \App\Http\Middleware\IsPublicUser::class,
+            'IsAgency' => \App\Http\Middleware\IsAgency::class,
+            'IsMcmc' => \App\Http\Middleware\IsMcmc::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

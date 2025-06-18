@@ -17,4 +17,3 @@ class IsAgency
         return redirect('/login')->with('error', 'Unauthorized.');
     }
 }
-
